@@ -1,0 +1,59 @@
+#include <SPI.h>
+#include <SD.h>
+
+
+File Mediciones;
+
+const int push1Pin = PUSH1;
+const int push2Pin = PUSH2;
+#define BUZZER_PIN 40
+
+int latidosData = 0; 
+
+void setup() {
+  SPI.setModule(0);
+  Serial.begin(115200);
+  Serial2.begin(115200);
+  pinMode(push1Pin, INPUT_PULLUP);
+  pinMode(push2Pin, INPUT_PULLUP);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(12, OUTPUT);
+
+  if (!SD.begin(12)) {
+    Serial.println("¡Inicialización fallida!");
+    return;
+  }
+  Serial.println("¡Inicialización completa!");
+}
+
+void loop() {
+  int push1State = digitalRead(push1Pin);
+
+  if (push1State == LOW) {
+    while (Serial2.available()) {
+      latidosData = Serial2.parseInt();  // Lee el valor enviado por Serial2 y lo asigna a latidosData
+      Serial2.print("Latidos por minuto: ");
+      Serial2.println(latidosData);
+    }
+    tone(BUZZER_PIN, 440, 500);  // 440 Hz (La) durante 500 ms
+    delay(500);  // Esperar un momento antes de continuar
+  }
+
+  int push2State = digitalRead(push2Pin);
+
+   if (push2State == LOW) {
+    while (Serial2.available()) {
+      latidosData = Serial2.parseInt();  // Lee el valor enviado por Serial2 y lo asigna a latidosData
+      Mediciones = SD.open("heartb.txt", FILE_WRITE);
+      if (Mediciones) {
+        Mediciones.println(latidosData);
+        Mediciones.close();
+        Serial2.println("Toma de latidos guardada correctamente en Mediciones.txt");
+      } else {
+        Serial2.println("No se encontró el archivo para escritura.");
+      }
+    }
+        tone(BUZZER_PIN, 523, 500);  // 523 Hz (Do) durante 500 ms
+        delay(500);  // Esperar un momento antes de continuar
+  }
+}

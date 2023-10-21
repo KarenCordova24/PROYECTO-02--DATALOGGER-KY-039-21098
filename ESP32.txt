@@ -1,0 +1,53 @@
+#include <Arduino.h>
+
+#define led 19
+#define sensor 35
+#define RXp2 16
+#define TXp2 17
+float factor = 0.75;
+float maximo = 0.0;
+int minentrelatidos = 300;
+float valoranterior = 500;
+int latidos = 0;
+int registro;
+
+void setup() {
+  Serial.begin(115200);
+  Serial2.begin(115200, SERIAL_8N1, RXp2, TXp2);
+  pinMode(led, OUTPUT);
+}
+
+void loop() {
+  static unsigned long tiempoLPM = millis();
+  static unsigned long entreLatidos = millis();
+  int valorleido = analogRead(sensor);
+
+  float valorfiltrado = factor * valoranterior + (1 - factor) * valorleido;
+  float cambio = valorfiltrado - valoranterior;
+  valoranterior = valorfiltrado;
+
+  if ((cambio >= maximo) && (millis() > entreLatidos + minentrelatidos)) {
+    maximo = cambio;
+    digitalWrite(led, HIGH);
+    entreLatidos = millis();
+    latidos++;
+  } else {
+    digitalWrite(led, LOW);
+  }
+
+  maximo = maximo * 0.97;
+  if (millis() >= tiempoLPM + 15000) {
+    registro = latidos * 4;
+    Serial2.print("Latidos por minuto: ");
+    Serial2.println(registro);
+    latidos = 0;
+    tiempoLPM = millis();
+  }
+
+  delay(50);
+
+  while(Serial2.available()) {
+    String message = Serial2.readStringUntil('\n');
+    Serial.println(message);
+  }
+}
