@@ -1,0 +1,80 @@
+
+
+//***************************************************************************************************************************************
+/* Karen Leonor Córdova López - 21098
+ * Proyecto 2 - Sensor cardiaco- KY 039
+ * UART TIVA C- ESP32- Pantalla TFT - Buzzer
+ * Electrónica Digital 2 - 2023
+ */
+//***************************************************************************************************************************************
+ //LIBRERÍAS
+//***************************************************************************************************************************************
+
+#include <Arduino.h>
+
+//***************************************************************************************************************************************
+ //DEFINICIÓN DE PINES 
+//***************************************************************************************************************************************
+
+
+#define sensor 35
+#define RXp2 16
+#define TXp2 17
+
+//***************************************************************************************************************************************
+ //VARIABLES GLOBALES
+//***************************************************************************************************************************************
+float factor = 0.75;    //coeficiente para filtro pasabajos
+float maximo = 0.0;     // para almacenar valor máximo 
+int minentrelatidos = 300;   //300 msg de tiempo mínimo entre latidos
+float valoranterior = 500;   //para almacenar valor previo
+int latidos = 0;             // contador de cantidad de latidos
+int registro;
+
+//***************************************************************************************************************************************
+ //Inicialización
+//***************************************************************************************************************************************
+void setup() {
+  Serial.begin(115200);    //Comunicacion UART COMPUTADORA
+  Serial2.begin(115200, SERIAL_8N1, RXp2, TXp2);   //UART CON TIVA C 
+  
+}
+
+//***************************************************************************************************************************************
+ //LOOP PRINCIPAL- INFINITO
+//***************************************************************************************************************************************
+void loop() {
+  static unsigned long tiempoLPM = millis();    // tiempo latidos por minuto con valor actual devuelto en millis()
+  static unsigned long entreLatidos = millis();  //tiempo entre latidos con valor actual devuelto por millis()
+  int valorleido = analogRead(sensor);  // lectura analógica del sensor KY039
+
+  float valorfiltrado = factor * valoranterior + (1 - factor) * valorleido;  //filtro pasa bajas 
+  float cambio = valorfiltrado - valoranterior;                              //diferencia entre valor filtrado y valor anterior 
+  valoranterior = valorfiltrado;                                             //actualiza valor anterior con valor filtrado 
+
+  if ((cambio >= maximo) && (millis() > entreLatidos + minentrelatidos)) {   //si cambio es mayor o igual a maximo y pasaron al menos 300 mseg.
+    maximo = cambio;                                                        //actualiza maximo con valor de cambio
+                                                 //enciende LED incorporado 
+    entreLatidos = millis();                                                 //actualiza variable entre latidos con millis()
+    latidos++;                                                               //incrementa latido en uno 
+  } else {
+                                                   //apaga  LED 
+  }
+
+  maximo = maximo * 0.97;                                                    //carga maximo con el 97% del propio valor para dejar decaer y no perder pulsos 
+  if (millis() >= tiempoLPM + 15000) {                                       // si transcurrieron al menos 15 segundos
+    registro = latidos * 4;                                                  //muestra variable latidos *4 
+    Serial2.print("Latidos por minuto: ");                                   //envia los datos en el serial 2, TIVA C 
+    Serial2.println(registro);
+     latidos = 0;                                                             //coloca contador de latidos en cero 
+    tiempoLPM = millis();                                                     //actualiza variable con valor de millis()
+  }
+ 
+
+  delay(50);                                                                   //demora entre lecturas de entrada 
+
+  while(Serial2.available()) {                                               //recibe los mensajes enviados de la TIVA C y los muestra en el monitor seria l
+    String message = Serial2.readStringUntil('\n');
+    Serial.println(message);
+  }
+}
